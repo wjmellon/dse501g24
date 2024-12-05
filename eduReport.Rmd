@@ -1,0 +1,306 @@
+---
+title: "Student Parental Education Analysis"
+author: "Team 24"
+date: "2024-12-03"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(car)
+
+
+data<-read.csv("StudentsPerformance.csv")
+head(data)
+```
+
+```{r}
+data <- data %>%
+  mutate(parental.level.of.education = case_when(
+    parental.level.of.education == "associate's degree" ~ "Assoc. Deg.",
+    parental.level.of.education == "bachelor's degree" ~ "Bach. Deg.",
+    parental.level.of.education == "master's degree" ~ "Mast. Deg.",
+    parental.level.of.education == "some college" ~ "Some College",
+    parental.level.of.education == "high school" ~ "High School",
+    parental.level.of.education == "some high school" ~ "Some HS",
+    TRUE ~ parental.level.of.education # Leave unchanged if no match
+  ))
+
+
+# Reshape data to a long format for separate histograms
+data_long_categorical <- data %>%
+  select(parental.level.of.education) %>%
+  pivot_longer(cols = everything(), names_to = "category", values_to = "value")
+
+# Create a combined histogram figure with facets
+ggplot(data_long_categorical, aes(x = value)) +
+  geom_bar(fill = "#4B4B4B") +  # Unified color for all histograms
+  facet_wrap(~ category, scales = "free_x", ncol = 3) +  # Layout with 3 columns to center bottom two
+  labs(
+    title = "Distribution of Education Levels",
+    x = "Category Value",
+    y = "Count"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    strip.text = element_text(size = 12),
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels for readability
+    legend.position = "none"
+  )
+```
+
+
+non education
+```{r}
+# Select non-parental education factors
+non_parental_factors <- data %>%
+  select(gender, race.ethnicity, lunch, test.preparation.course)
+
+# Reshape data to long format for plotting
+non_parental_long <- non_parental_factors %>%
+  pivot_longer(cols = everything(), names_to = "Category", values_to = "Value")
+
+# Create a bar chart for distribution of non-parental factors
+ggplot(non_parental_long, aes(x = Value)) +
+  geom_bar(fill = "#4B4B4B") +
+  facet_wrap(~ Category, scales = "free", ncol = 2) +
+  labs(
+    title = "Distribution of Non-Parental Education Factors",
+    x = "Categories",
+    y = "Count"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    strip.text = element_text(size = 12),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+```
+
+```{r}
+# Calculate the average score for each student
+data <- data %>%
+  mutate(average.score = rowMeans(select(., math.score, reading.score, writing.score)))
+
+# Create a boxplot for average scores
+ggplot(data, aes(x = parental.level.of.education, y = average.score)) +
+  geom_boxplot(fill = "#4B4B4B", color = "black", alpha = 0.7) +
+  labs(
+    title = "Average Scores by Parental Education",
+    x = "Parental Education Level",
+    y = "Average Score"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16),
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+Check for homogenity of variances before continuing with anova
+```{r}
+levene_average<-leveneTest(average.score ~ parental.level.of.education, data = data)
+levene_average
+```
+
+We can continue with anova
+
+Anova Average
+```{r}
+anova_average <- aov(average.score ~ parental.level.of.education, data = data)
+summary(anova_average)
+```
+
+box plots for all scores 
+
+```{r}
+scores <- c("math.score", "reading.score", "writing.score")
+titles <- c("Math Scores by Parental Education", "Reading Scores by Parental Education", "Writing Scores by Parental Education")
+# Loop through each score and display the boxplot
+for (i in seq_along(scores)) {
+  p <- ggplot(data, aes(x = parental.level.of.education, y = .data[[scores[i]]])) +
+    geom_boxplot(fill = "#4B4B4B", color = "black", alpha = 0.7) +
+    labs(
+      title = titles[i],
+      x = "Parental Education Level",
+      y = "Score"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(size = 16),
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = 14),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+    )
+  print(p) # Correctly print the plot within the loop
+}
+```
+levene for math scores
+
+```{r}
+levene_math<-leveneTest(math.score ~ parental.level.of.education, data = data)
+levene_math
+```
+Anova for math and education level
+
+```{r}
+anova_math <- aov(math.score ~ parental.level.of.education, data = data)
+summary(anova_math)
+```
+
+check for homogeneity of variance across groups. Levene test
+```{r}
+levene_read<-leveneTest(reading.score ~ parental.level.of.education, data = data)
+levene_read
+```
+
+Anova for Reading and education level
+
+```{r}
+anova_reading <- aov(reading.score ~ parental.level.of.education, data = data)
+summary(anova_reading)
+```
+
+Check for homogenity of variances before continuing with anova
+```{r}
+levene_writing<-leveneTest(writing.score ~ parental.level.of.education, data = data)
+levene_writing
+```
+
+Anova for Writing and education level
+
+```{r}
+anova_write <- aov(writing.score ~ parental.level.of.education, data = data)
+summary(anova_write)
+```
+
+
+GLM Univariate
+
+```{r}
+glm_average <- glm(
+  average.score ~ parental.level.of.education,
+  data = data,
+  family = gaussian() # Assumes a normal distribution for the dependent variable
+)
+summary(glm_average)
+```
+
+
+GLM Math
+```{r}
+data$parental.level.of.education <- factor(
+  data$parental.level.of.education,
+  levels = c("High School", "Some HS", "Some College", "Assoc. Deg.", "Bach. Deg.", "Mast. Deg.") # Customize the order
+)
+
+glm_math <- glm(
+  math.score ~ parental.level.of.education,
+  data = data,
+  family = gaussian() # Assumes a normal distribution for the dependent variable
+)
+summary(glm_math)
+```
+
+
+
+GLM Reading
+```{r}
+glm_read <- glm(
+  reading.score ~ parental.level.of.education,
+  data = data,
+  family = gaussian() # Assumes a normal distribution for the dependent variable
+)
+summary(glm_read)
+```
+
+
+GLM Writing
+```{r}
+glm_write <- glm(
+  writing.score ~ parental.level.of.education,
+  data = data,
+  family = gaussian() # Assumes a normal distribution for the dependent variable
+)
+summary(glm_write)
+```
+
+
+Bivariate Average results
+```{r}
+bi_glm_average_gender <- glm(
+  average.score ~ parental.level.of.education + gender,
+  data = data,
+  family = gaussian() # Assumes a normal distribution for the dependent variable
+)
+summary(bi_glm_average_gender)
+```
+
+
+```{r}
+bi_glm_average_race <- glm(
+  average.score ~ parental.level.of.education + race.ethnicity,
+  data = data,
+  family = gaussian() # Assumes a normal distribution for the dependent variable
+)
+summary(bi_glm_average_race)
+```
+
+```{r}
+bi_glm_average_lunch <- glm(
+  average.score ~ parental.level.of.education + lunch,
+  data = data,
+  family = gaussian() # Assumes a normal distribution for the dependent variable
+)
+summary(bi_glm_average_lunch)
+```
+
+
+
+```{r}
+bi_glm_average_test <- glm(
+  average.score ~ parental.level.of.education + test.preparation.course,
+  data = data,
+  family = gaussian() # Assumes a normal distribution for the dependent variable
+)
+summary(bi_glm_average_test)
+```
+
+
+Full Model
+
+```{r}
+full_glm_average <- glm(
+  average.score ~ parental.level.of.education + test.preparation.course+lunch + race.ethnicity+gender,
+  data = data,
+  family = gaussian() # Assumes a normal distribution for the dependent variable
+)
+summary(full_glm_average)
+```
+
+vif
+```{r}
+vif_full<-vif(full_glm_average)
+vif_full
+```
+No evidence of multicollinearity
+
+
+Now lets use stepwise model selection to find the best fit model
+
+```{r}
+library(MASS)
+
+best_model <- stepAIC(full_glm_average, direction = "both", trace = TRUE)
+summary(best_model)
+```
+Looks like parental level of education remains a significant predictor alongside other predictors of test score.
